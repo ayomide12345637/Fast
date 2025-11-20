@@ -1,0 +1,84 @@
+import express from "express";
+import axios from "axios";
+import dotenv from "dotenv";
+import cors from "cors";
+
+dotenv.config();
+const app = express();
+
+app.use(express.json());
+app.use(cors());
+
+// =============================
+// TEST ROUTE
+// =============================
+app.get("/", (req, res) => {
+    res.json({ message: "FAST MONEY PAYOUT BACKEND LIVE 🚀" });
+});
+
+// =============================
+// WITHDRAW ENDPOINT (LIVE)
+// =============================
+app.post("/withdraw", async (req, res) => {
+    try {
+        const { amount, account_number, bank_code } = req.body;
+
+        if (!amount || !account_number || !bank_code) {
+            return res.status(400).json({
+                status: "error",
+                message: "Missing fields: amount, account_number, bank_code are required"
+            });
+        }
+
+        const payload = {
+            amount: amount * 100,    // Squad uses kobo
+            bank_code,
+            account_number,
+            currency: "NGN"
+        };
+
+        // LIVE API URL (Correct)
+        const response = await axios.post(
+            "https://api-d.squadco.com/transaction/bank_transfer",
+            payload,
+            {
+                headers: {
+                    Authorization: `Bearer ${process.env.SQUAD_SECRET_KEY}`,
+                    "Content-Type": "application/json"
+                }
+            }
+        );
+
+        console.log("SQUAD RESPONSE:", response.data);
+
+        if (response.data?.success === true) {
+            return res.json({
+                status: "success",
+                message: "Payout sent successfully",
+                data: response.data
+            });
+        } else {
+            return res.status(400).json({
+                status: "failed",
+                message: response.data?.message || "Payout failed",
+                squad: response.data
+            });
+        }
+
+    } catch (err) {
+        console.error("WITHDRAW ERROR:", err.response?.data || err.message);
+
+        return res.status(500).json({
+            status: "error",
+            message: "Server error",
+            squad_error: err.response?.data || err.message
+        });
+    }
+});
+
+// =============================
+// START SERVER
+// =============================
+app.listen(process.env.PORT || 3000, () => {
+    console.log("Backend running on PORT", process.env.PORT);
+});
