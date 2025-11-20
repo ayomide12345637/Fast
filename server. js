@@ -1,0 +1,163 @@
+import express from "express";
+import axios from "axios";
+import dotenv from "dotenv";
+import cors from "cors";
+
+dotenv.config();
+const app = express();
+
+app.use(express.json());
+app.use(
+  cors({
+    origin: "*", // allow all
+    methods: "GET,POST",
+    allowedHeaders: "Content-Type, Authorization",
+  })
+);
+
+// -----------------------------
+// ✅ CHECK BACKEND STATUS
+// -----------------------------
+app.get("/", (req, res) => {
+  res.json({ message: "Fast Money LIVE Withdrawal Backend Running 🚀" });
+});
+
+// -----------------------------
+// ✅ BANK LIST (static, no Squad needed)
+// -----------------------------
+const banks = [
+  { name: "Access Bank", code: "044" },
+  { name: "GTBank", code: "058" },
+  { name: "Zenith Bank", code: "057" },
+  { name: "First Bank", code: "011" },
+  { name: "UBA", code: "033" },
+  { name: "Fidelity", code: "070" },
+  { name: "Keystone Bank", code: "082" },
+  { name: "Union Bank", code: "032" },
+  { name: "Wema Bank", code: "035" },
+  { name: "FCMB", code: "214" },
+  { name: "Polaris Bank", code: "076" },
+
+  // Fintechs
+  { name: "Kuda", code: "50211" },
+  { name: "OPay", code: "999992" },
+  { name: "PalmPay", code: "999991" },
+  { name: "MoniePoint", code: "50515" },
+  { name: "FairMoney", code: "51318" },
+];
+
+app.get("/banks", (req, res) => {
+  res.json({ status: "success", banks });
+});
+
+// -----------------------------
+// ✅ ACCOUNT LOOKUP (Live Mode)
+// -----------------------------
+app.post("/resolve-account", async (req, res) => {
+  try {
+    const { account_number, bank_code } = req.body;
+
+    if (!account_number || !bank_code) {
+      return res.status(400).json({
+        status: "error",
+        message: "Account number and bank code required",
+      });
+    }
+
+    const response = await axios.post(
+      "https://api-d.squadco.com/merchant/account/resolve",
+      {
+        account_number,
+        bank_code,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.SQUAD_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    res.json(response.data);
+  } catch (err) {
+    return res.status(500).json({
+      status: "error",
+      message: "Account lookup failed",
+      squad_error: err.response?.data || null,
+    });
+  }
+});
+
+// -----------------------------
+// ✅ WITHDRAW (Live Mode)
+// -----------------------------
+app.post("/withdraw", async (req, res) => {
+  try {
+    const { amount, account_number, bank_code } = req.body;
+
+    if (!amount || !account_number || !bank_code) {
+      return res.status(400).json({
+        status: "error",
+        message: "Missing fields: amount, account_number, bank_code",
+      });
+    }
+
+    // 🔥 Correct reference (merchant + timestamp)
+    const reference = `12A9CFQX_${Date.now()}`;
+
+    const response = await axios.post(
+      "https://api-d.squadco.com/transaction/transfer",
+      {
+        amount,
+        bank_code,
+        account_number,
+        currency_id: "NGN",
+        reference: reference,
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.SQUAD_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    // SUCCESS
+    if (response.data?.success === true) {
+      return res.json({
+        status: "success",
+        message: "Withdrawal Successful",
+        reference,
+        squad: response.data,
+      });
+    }
+
+    // FAILED (e.g insufficient balance)
+    return res.status(400).json({
+      status: "failed",
+      message: response.data?.message || "Withdrawal failed",
+      squad: response.data,
+    });
+  } catch (err) {
+    const squadErr = err.response?.data;
+
+    // 🔥 Detect insufficient balance
+    let customMessage = "Internal server error";
+    if (squadErr?.message?.includes("Insufficient")) {
+      customMessage = "❌ Insufficient Balance in Squad Wallet";
+    }
+
+    return res.status(500).json({
+      status: "error",
+      message: customMessage,
+      squad_error: squadErr || null,
+    });
+  }
+});
+
+// -----------------------------
+// 🚀 START SERVER
+// -----------------------------
+app.listen(process.env.PORT, () => {
+  console.log("Fast Money LIVE Backend Running on PORT " + process.env.PORT);
+});
