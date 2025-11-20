@@ -9,16 +9,16 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ==========================================
+// ================================
 // 🚀 TEST ROUTE
-// ==========================================
+// ================================
 app.get("/", (req, res) => {
     res.json({ message: "Payout Backend Running Successfully 🚀" });
 });
 
-// ==========================================
-// 🚀 AUTO WITHDRAW ENDPOINT
-// ==========================================
+// ================================
+// 🚀 SQUAD PAYOUT ENDPOINT
+// ================================
 app.post("/withdraw", async (req, res) => {
     try {
         const { amount, account_number, bank_code } = req.body;
@@ -30,9 +30,15 @@ app.post("/withdraw", async (req, res) => {
             });
         }
 
-        // Squad API request
+        // ================================
+        // 🔴 CHANGE THIS URL BASED ON MODE
+        // ================================
+        const squadURL = process.env.SQUAD_MODE === "live"
+            ? "https://api.squadco.com/transfer"
+            : "https://sandbox-api.squadco.com/transfer";
+
         const response = await axios.post(
-            "https://sandbox-api.squadco.com/transfer",
+            squadURL,
             {
                 amount: amount,
                 bank_code: bank_code,
@@ -47,35 +53,67 @@ app.post("/withdraw", async (req, res) => {
             }
         );
 
-        // If Squad says success
+        // ================================
+        // 🟢 SUCCESS
+        // ================================
         if (response.data && response.data.status === true) {
             return res.json({
                 status: "success",
-                message: "Payout successful",
-                data: response.data
-            });
-        } else {
-            return res.status(400).json({
-                status: "failed",
-                message: "Payout failed",
+                message: "Payout successful ✅",
                 data: response.data
             });
         }
 
-    } catch (err) {
-        console.error("Payout Error:", err.response?.data || err.message);
+        // ================================
+        // 🔴 FAILED (BUT VALID RESPONSE)
+        // ================================
+        return res.status(400).json({
+            status: "failed",
+            message: response.data.message || "Payout failed",
+            squad: response.data
+        });
 
+    } catch (err) {
+        const squadErr = err.response?.data;
+        console.log("RAW Squad Error:", squadErr);
+
+        // ================================
+        // 🔥 CUSTOM ERROR DETECTION
+        // ================================
+
+        // 1️⃣ Insufficient balance
+        if (squadErr?.message?.toLowerCase().includes("insufficient")) {
+            return res.status(400).json({
+                status: "failed",
+                message: "Insufficient balance in your Squad wallet ❌",
+                squad_error: squadErr
+            });
+        }
+
+        // 2️⃣ Invalid bank or account
+        if (
+            squadErr?.message?.toLowerCase().includes("account") ||
+            squadErr?.message?.toLowerCase().includes("bank")
+        ) {
+            return res.status(400).json({
+                status: "failed",
+                message: "Invalid bank or account number ❌",
+                squad_error: squadErr
+            });
+        }
+
+        // 3️⃣ Default error
         return res.status(500).json({
             status: "error",
-            message: "Internal server error",
-            squad_error: err.response?.data || null
+            message: "Something went wrong with payout ❌",
+            squad_error: squadErr || err.message
         });
     }
 });
 
-// ==========================================
+// ================================
 // 🚀 START SERVER
-// ==========================================
-app.listen(process.env.PORT, () => {
-    console.log(`Backend Running on PORT ${process.env.PORT}`);
+// ================================
+app.listen(process.env.PORT || 3000, () => {
+    console.log(`Backend Running on PORT ${process.env.PORT || 3000}`);
 });
