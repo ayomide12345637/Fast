@@ -503,7 +503,28 @@ async function loadHome() {
     const snap = await userDocRef.get();
     currentUser = snap.data();
     currentUser.uid = userDocRef.id;
+// 🔥 FIX MISSED REFERRAL REWARD
+if (currentUser.paid && currentUser.referredBy && !currentUser.rewardGiven) {
 
+    const refQuery = await db.collection('users')
+        .where('referralCode', '==', currentUser.referredBy)
+        .get();
+
+    if (!refQuery.empty) {
+        const refDoc = refQuery.docs[0];
+
+        await refDoc.ref.update({
+            referrals: firebase.firestore.FieldValue.increment(1),
+            balance: firebase.firestore.FieldValue.increment(500)
+        });
+
+        await userDocRef.update({
+            rewardGiven: true
+        });
+
+        console.log("✅ Missed referral fixed");
+    }
+}
     // Force referralCode for old users
     if (!currentUser.referralCode) {
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -573,7 +594,10 @@ function initiateSquadPayment() {
         first_name: currentUser.nickname,
         onClose: () => alert("Payment cancelled"),
         onSuccess: async () => {
-            await userDocRef.update({ paid: true });
+            await userDocRef.update({ 
+    paid: true,
+    rewardGiven: false
+});
 
             if (currentUser.referredBy) {
                 const refQuery = await db.collection('users')
@@ -630,6 +654,8 @@ function navigateTo(page) {
         loadAboutContent();
     }
 }
+
+
 
 // FIXED WITHDRAWAL PAGE
 async function loadWithdrawPage() {
