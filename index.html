@@ -49,7 +49,7 @@
         .user-info { text-align:right; font-size:0.95rem; color:var(--gray); }
 
         .container { 
-            padding: 1rem 1rem 100px 1rem; /* Extra bottom padding to prevent footer overlap */
+            padding: 1rem 1rem 100px 1rem; 
             max-width:100%; 
             margin:0 auto; 
         }
@@ -189,41 +189,31 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         
         /* Small sections */
-.small-section {
-    margin-bottom:0.6rem;
-    padding:0.7rem;
-    border-radius:12px;
-}
-
-/* Referral box */
-.referral-box {
-    padding:0.6rem;
-    border-radius:10px;
-    font-size:0.9rem;
-}
-
-/* Referral link box */
-.ref-link {
-    padding:0.5rem;
-    font-size:0.85rem;
-    margin:0.4rem 0;
-}
-
-/* Level bar */
-.level-bar {
-    height:5px;
-}
-
-#current-level {
-    font-size:1rem;
-}
-
-/* Buttons smaller */
-button {
-    padding:0.6rem;
-    font-size:0.9rem;
-}
-        
+        .small-section {
+            margin-bottom:0.6rem;
+            padding:0.7rem;
+            border-radius:12px;
+        }
+        .referral-box {
+            padding:0.6rem;
+            border-radius:10px;
+            font-size:0.9rem;
+        }
+        .ref-link {
+            padding:0.5rem;
+            font-size:0.85rem;
+            margin:0.4rem 0;
+        }
+        .level-bar {
+            height:5px;
+        }
+        #current-level {
+            font-size:1rem;
+        }
+        button {
+            padding:0.6rem;
+            font-size:0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -292,7 +282,7 @@ button {
                 </div>
                 <div id="link-box" class="hidden">
                     <p>Your Referral Link</p>
-                    <div class="ref-link" id="ref-link-text">https://fastmoney-t9sb.onrender.com/?ref=nickname</div>
+                    <div class="ref-link" id="ref-link-text">https://fastmoney-t9sb.onrender.com/?ref=...</div>
                     <button onclick="copyRefLink()">Copy Link</button>
                 </div>
             </div>
@@ -376,7 +366,6 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
-// Keep user logged in
 auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 const db = firebase.firestore();
 
@@ -423,7 +412,7 @@ function switchToSignup() {
     document.getElementById('auth-title').textContent = 'Create Account';
 }
 
-// Signup & Login
+// ==================== SIGNUP WITH RANDOM REFERRAL CODE ====================
 async function signUp() {
     showLoading();
     const nickname = document.getElementById('signup-nickname').value.trim();
@@ -446,20 +435,12 @@ async function signUp() {
 
     try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
-        // Get referral from URL
-let urlParams = new URLSearchParams(window.location.search);
-let ref = urlParams.get('ref'); // e.g., ?ref=nickname
+        
+        let urlParams = new URLSearchParams(window.location.search);
+        let ref = urlParams.get('ref');
 
-await db.collection('users').doc(cred.user.uid).set({
-    nickname: nickname,
-    email: email,
-    balance: 0,
-    referrals: 0,
-    paid: false,
-    level: "Newbie",
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-    referredBy: ref || null // store who referred this user
-});
+        const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+
         await db.collection('users').doc(cred.user.uid).set({
             nickname: nickname,
             email: email,
@@ -467,8 +448,11 @@ await db.collection('users').doc(cred.user.uid).set({
             referrals: 0,
             paid: false,
             level: "Newbie",
+            referralCode: referralCode,
+            referredBy: ref || null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+
         alert("✅ Account created successfully!\n\nLogin with your Email and Password");
         switchToLogin();
     } catch (e) {
@@ -508,16 +492,21 @@ async function login() {
     hideLoading();
 }
 
-// Global current user
-currentUser;
-
-// Load Home
+// ==================== LOAD HOME WITH AUTO FIX ====================
 async function loadHome() {
     const snap = await userDocRef.get();
     currentUser = snap.data();
     currentUser.uid = userDocRef.id;
 
-    // Update UI
+    // Force referralCode for old users
+    if (!currentUser.referralCode) {
+        const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        await userDocRef.update({
+            referralCode: newCode
+        });
+        currentUser.referralCode = newCode;
+    }
+
     document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
     document.getElementById('current-level').textContent = currentUser.level || "Newbie";
 
@@ -527,24 +516,29 @@ async function loadHome() {
     if (currentUser.paid) {
         document.getElementById('pay-box').classList.add('hidden');
         document.getElementById('link-box').classList.remove('hidden');
-        document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.nickname}`;
+        document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
     } else {
         document.getElementById('pay-box').classList.remove('hidden');
         document.getElementById('link-box').classList.add('hidden');
     }
 
-    // Load referrals
     loadReferrals();
 }
 
-// Load referrals (moved out)
+// ==================== PROTECTED REFERRALS ====================
 async function loadReferrals() {
     const listEl = document.getElementById('referrals-list');
     listEl.innerHTML = '';
 
-    // Get all users who were referred by current user and have paid
+    if (!currentUser || !currentUser.referralCode) {
+        listEl.innerHTML = '<div class="list-item">No referral code yet.</div>';
+        return;
+    }
+
+    console.log("Referral Code:", currentUser.referralCode);
+
     const snap = await db.collection('users')
-        .where('referredBy', '==', currentUser.nickname)
+        .where('referredBy', '==', currentUser.referralCode)
         .where('paid', '==', true)
         .get();
 
@@ -553,7 +547,6 @@ async function loadReferrals() {
         return;
     }
 
-    // Show total count
     listEl.innerHTML = `<div class="list-item"><strong>Total Referrals: ${snap.size}</strong></div>`;
 
     snap.forEach(doc => {
@@ -562,7 +555,7 @@ async function loadReferrals() {
     });
 }
 
-// Payment function (moved out)
+// Payment with Referral Reward
 function initiateSquadPayment() {
     if (!currentUser) return alert("Please login first");
 
@@ -575,14 +568,28 @@ function initiateSquadPayment() {
         onClose: () => alert("Payment cancelled"),
         onSuccess: async () => {
             await userDocRef.update({ paid: true });
+
+            if (currentUser.referredBy) {
+                const refQuery = await db.collection('users')
+                    .where('referralCode', '==', currentUser.referredBy)
+                    .get();
+
+                if (!refQuery.empty) {
+                    const refDoc = refQuery.docs[0];
+                    await refDoc.ref.update({
+                        referrals: firebase.firestore.FieldValue.increment(1),
+                        balance: firebase.firestore.FieldValue.increment(500)
+                    });
+                }
+            }
+
             alert("✅ Payment successful! Referral link activated.");
 
-            // Show referral link immediately
             document.getElementById('pay-box').classList.add('hidden');
             document.getElementById('link-box').classList.remove('hidden');
-            document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.nickname}`;
+            document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
 
-            loadHome(); // refresh balances
+            loadHome();
         }
     });
 
@@ -590,19 +597,16 @@ function initiateSquadPayment() {
     squadInstance.open();
 }
 
-// Copy referral link
 function copyRefLink() {
     const text = document.getElementById('ref-link-text').textContent;
     navigator.clipboard.writeText(text);
     alert("✅ Link copied!");
 }
 
-// Show level details
 function showLevelDetails() {
     alert("Levels:\n0–9 → Newbie\n10–19 → Amateur\n20–39 → Pro\n40–59 → Expert\n60–99 → Legendary\n100+ → God Mode");
 }
 
-// Navigation
 function navigateTo(page) {
     document.querySelectorAll('#home-page,#withdraw-page,#leaderboard-page,#about-page').forEach(el => el.classList.add('hidden'));
     
@@ -625,18 +629,16 @@ function navigateTo(page) {
 // FIXED WITHDRAWAL PAGE
 async function loadWithdrawPage() {
     showLoading();
-
     try {
         const snap = await userDocRef.get();
         if (!snap.exists) throw new Error("User data not found");
 
         currentUser = snap.data();
-        currentUser.uid = userDocRef.id;   // Ensure uid is always set
+        currentUser.uid = userDocRef.id;
 
         document.getElementById('withdraw-balance').textContent = 
             `₦${(currentUser.balance || 0).toFixed(2)}`;
 
-        // Safe pending check
         let hasPending = false;
         if (currentUser.uid) {
             const pendingSnap = await db.collection('withdrawals')
@@ -751,7 +753,6 @@ async function requestWithdrawal() {
     }
 
     try {
-        // 1️⃣ Create withdrawal request
         await db.collection('withdrawals').add({
             userId: currentUser.uid,
             nickname: currentUser.nickname || "Unknown",
@@ -759,22 +760,21 @@ async function requestWithdrawal() {
             bankDetails: currentUser.bankDetails,
             status: 'pending',
             requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            balanceBefore: currentBalance   // This helps admin see original balance
+            balanceBefore: currentBalance
         });
 
-        // 2️⃣ Immediately reduce user balance
         await userDocRef.update({
             balance: currentBalance - amount
         });
 
         alert(`✅ Withdrawal request of ₦${amount.toLocaleString()} sent successfully.`);
         loadWithdrawPage();
-        loadHome(); // Refresh balance display
-
+        loadHome();
     } catch (e) {
         alert("Error sending withdrawal: " + e.message);
     }
 }
+
 async function loadLeaderboard() {
     const listEl = document.getElementById('leaderboard-list');
     listEl.innerHTML = 'Loading...';
