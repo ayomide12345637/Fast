@@ -349,6 +349,7 @@ button {
             <video id="advert-video" autoplay loop muted playsinline style="width:100%;border-radius:16px;margin:1rem 0;">
                 <source src="YOUR_ADVERT_VIDEO_URL_HERE.mp4" type="video/mp4">
             </video>
+            <button id="logout-btn" style="background:#ef4444;color:white;margin-top:1rem;padding:0.7rem;border:none;border-radius:10px;" onclick="logout()">Logout</button>
             <div id="about-content"></div>
         </div>
     </div>
@@ -375,6 +376,8 @@ const firebaseConfig = {
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+// Keep user logged in
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 const db = firebase.firestore();
 
 let currentUser = null;
@@ -443,6 +446,20 @@ async function signUp() {
 
     try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
+        // Get referral from URL
+let urlParams = new URLSearchParams(window.location.search);
+let ref = urlParams.get('ref'); // e.g., ?ref=nickname
+
+await db.collection('users').doc(cred.user.uid).set({
+    nickname: nickname,
+    email: email,
+    balance: 0,
+    referrals: 0,
+    paid: false,
+    level: "Newbie",
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    referredBy: ref || null // store who referred this user
+});
         await db.collection('users').doc(cred.user.uid).set({
             nickname: nickname,
             email: email,
@@ -491,12 +508,16 @@ async function login() {
     hideLoading();
 }
 
+// Global current user
+currentUser;
+
 // Load Home
 async function loadHome() {
     const snap = await userDocRef.get();
     currentUser = snap.data();
     currentUser.uid = userDocRef.id;
 
+    // Update UI
     document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
     document.getElementById('current-level').textContent = currentUser.level || "Newbie";
 
@@ -512,12 +533,39 @@ async function loadHome() {
         document.getElementById('link-box').classList.add('hidden');
     }
 
-    document.getElementById('referrals-list').innerHTML = `<div class="list-item">Total Referrals: ${currentUser.referrals || 0}</div>`;
+    // Load referrals
+    loadReferrals();
 }
 
-// Payment
+// Load referrals (moved out)
+async function loadReferrals() {
+    const listEl = document.getElementById('referrals-list');
+    listEl.innerHTML = '';
+
+    // Get all users who were referred by current user and have paid
+    const snap = await db.collection('users')
+        .where('referredBy', '==', currentUser.nickname)
+        .where('paid', '==', true)
+        .get();
+
+    if (snap.empty) {
+        listEl.innerHTML = '<div class="list-item">No referrals yet.</div>';
+        return;
+    }
+
+    // Show total count
+    listEl.innerHTML = `<div class="list-item"><strong>Total Referrals: ${snap.size}</strong></div>`;
+
+    snap.forEach(doc => {
+        const data = doc.data();
+        listEl.innerHTML += `<div class="list-item">${data.nickname} - Paid</div>`;
+    });
+}
+
+// Payment function (moved out)
 function initiateSquadPayment() {
     if (!currentUser) return alert("Please login first");
+
     const squadInstance = new squad({
         key: "pk_cb3dfacd4666ddefe368d173d1b4a23e840c0f72",
         email: currentUser.email,
@@ -528,19 +576,28 @@ function initiateSquadPayment() {
         onSuccess: async () => {
             await userDocRef.update({ paid: true });
             alert("✅ Payment successful! Referral link activated.");
-            loadHome();
+
+            // Show referral link immediately
+            document.getElementById('pay-box').classList.add('hidden');
+            document.getElementById('link-box').classList.remove('hidden');
+            document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.nickname}`;
+
+            loadHome(); // refresh balances
         }
     });
+
     squadInstance.setup();
     squadInstance.open();
 }
 
+// Copy referral link
 function copyRefLink() {
     const text = document.getElementById('ref-link-text').textContent;
     navigator.clipboard.writeText(text);
     alert("✅ Link copied!");
 }
 
+// Show level details
 function showLevelDetails() {
     alert("Levels:\n0–9 → Newbie\n10–19 → Amateur\n20–39 → Pro\n40–59 → Expert\n60–99 → Legendary\n100+ → God Mode");
 }
@@ -756,6 +813,18 @@ async function loadAboutContent() {
     } else {
         contentDiv.innerHTML = '<p>No content available yet.</p>';
     }
+}
+
+function logout() {
+    auth.signOut().then(() => {
+        currentUser = null;
+        userDocRef = null;
+        document.getElementById('main-app').classList.add('hidden');
+        document.getElementById('auth-screen').classList.remove('hidden');
+        alert("✅ Logged out successfully");
+    }).catch(err => {
+        alert("Error logging out: " + err.message);
+    });
 }
 
 // Start the app
