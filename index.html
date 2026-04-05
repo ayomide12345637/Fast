@@ -292,7 +292,7 @@ button {
                 </div>
                 <div id="link-box" class="hidden">
                     <p>Your Referral Link</p>
-                    <div class="ref-link" id="ref-link-text">https://YOURDOMAIN.com/?ref=nickname</div>
+                    <div class="ref-link" id="ref-link-text">https://fastmoney-t9sb.onrender.com/?ref=nickname</div>
                     <button onclick="copyRefLink()">Copy Link</button>
                 </div>
             </div>
@@ -506,7 +506,7 @@ async function loadHome() {
     if (currentUser.paid) {
         document.getElementById('pay-box').classList.add('hidden');
         document.getElementById('link-box').classList.remove('hidden');
-        document.getElementById('ref-link-text').textContent = `https://YOURDOMAIN.com/?ref=${currentUser.nickname}`;
+        document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.nickname}`;
     } else {
         document.getElementById('pay-box').classList.remove('hidden');
         document.getElementById('link-box').classList.add('hidden');
