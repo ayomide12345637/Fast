@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fast Money</title>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <script src="https://checkout.squadco.com/widget/squad.min.js"></script>
+    <style>
+        :root { 
+            --yellow: #ffc107; 
+            --yellow-dark: #e0a800; 
+            --dark: #1f2937; 
+            --gray: #6b7280; 
+            --red: #ef4444; 
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { 
+            font-family: system-ui, sans-serif; 
+            background:#f8fafc; 
+            color:var(--dark); 
+            line-height:1.6; 
+        }
+        header { 
+            background:var(--yellow); 
+            padding:1rem; 
+            display:flex; 
+            justify-content:space-between; 
+            align-items:center; 
+            box-shadow:0 2px 8px rgba(0,0,0,0.08); 
+            position:sticky; 
+            top:0; 
+            z-index:100; 
+        }
+        .logo-container { 
+            width:48px; 
+            height:48px; 
+            background:#111; 
+            border-radius:50%; 
+            display:flex; 
+            align-items:center; 
+            justify-content:center; 
+        }
+        .logo { height:36px; }
+        .balance { font-size:1.25rem; font-weight:600; }
+        .user-info { text-align:right; font-size:0.95rem; color:var(--gray); }
+
+        .container { 
+            padding: 1rem 1rem 100px 1rem; /* Extra bottom padding to prevent footer overlap */
+            max-width:100%; 
+            margin:0 auto; 
+        }
+
+        .small-section { 
+            margin-bottom:1rem; 
+            background:white; 
+            border-radius:16px; 
+            padding:1.1rem; 
+            box-shadow:0 4px 15px rgba(0,0,0,0.05); 
+        }
+        h2 { font-size:1.2rem; margin-bottom:0.6rem; color:var(--dark); }
+        input, select, button { 
+            width:100%; 
+            padding:0.95rem; 
+            margin:0.5rem 0; 
+            border:1px solid #e5e7eb; 
+            border-radius:12px; 
+            font-size:1rem; 
+        }
+        button { 
+            background:var(--yellow); 
+            font-weight:600; 
+            border:none; 
+            cursor:pointer; 
+            border-radius:12px; 
+        }
+        button:hover { background:var(--yellow-dark); }
+        button.green { background:#10b981; color:white; }
+        button.disabled { background:#9ca3af; cursor:not-allowed; }
+
+        .level-bar { height:8px; background:#e5e7eb; border-radius:9999px; overflow:hidden; margin:0.6rem 0; }
+        .level-fill { height:100%; background:linear-gradient(to right,#ffc107,#f59e0b); }
+
+        .referral-box { 
+            text-align:center; 
+            padding:1.1rem; 
+            background:#fffbeb; 
+            border:2px dashed #fcd34d; 
+            border-radius:16px; 
+        }
+        .ref-link { 
+            word-break:break-all; 
+            background:white; 
+            padding:1rem; 
+            border-radius:12px; 
+            margin:0.8rem 0; 
+            border:1px solid #e5e7eb; 
+            font-size:0.95rem; 
+        }
+
+        footer { 
+            position:fixed; 
+            bottom:0; 
+            left:0; 
+            right:0; 
+            background:white; 
+            display:flex; 
+            justify-content:space-around; 
+            padding:0.8rem 0; 
+            box-shadow:0 -2px 10px rgba(0,0,0,0.08); 
+            z-index:100; 
+        }
+        .footer-btn { 
+            text-align:center; 
+            font-size:0.8rem; 
+            color:var(--gray); 
+            display:flex; 
+            flex-direction:column; 
+            align-items:center; 
+            gap:4px; 
+        }
+        .footer-btn.active { color:var(--yellow); font-weight:600; }
+        .footer-btn .material-icons { font-size:24px; }
+
+        .hidden { display:none !important; }
+        .list-item { padding:0.8rem 0; border-bottom:1px solid #f3f4f6; font-size:0.95rem; }
+        .list-item:last-child { border-bottom:none; }
+
+        .password-hint { font-size:0.85rem; margin-top:4px; color:#ef4444; }
+        .password-hint.valid { color:#10b981; }
+
+        .pending-red { 
+            color:var(--red); 
+            font-weight:600; 
+            text-align:center; 
+            margin:1rem 0; 
+            padding:1rem; 
+            background:#fee2e2; 
+            border-radius:12px; 
+        }
+
+        /* Withdrawal page improvements */
+        #withdraw-page h3 {
+            margin: 1.5rem 0 0.8rem;
+        }
+        #withdraw-btn {
+            margin-top: 1.5rem;
+            padding: 1.1rem;
+            font-size: 1.1rem;
+        }
+
+        /* Centered Loading */
+        #loading-screen {
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.88); 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center; 
+            z-index: 9999; 
+            color: white;
+        }
+        .loader-logo {
+            width: 100px; 
+            height: 100px; 
+            background: #111; 
+            border-radius: 50%; 
+            position: relative;
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+        }
+        .loader-logo img { height: 70px; }
+        .loader-ring {
+            position: absolute; 
+            width: 120px; 
+            height: 120px; 
+            border: 8px solid transparent;
+            border-top-color: #ffc107; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite;
+            top: -10px; 
+            left: -10px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        
+        /* Small sections */
+.small-section {
+    margin-bottom:0.6rem;
+    padding:0.7rem;
+    border-radius:12px;
+}
+
+/* Referral box */
+.referral-box {
+    padding:0.6rem;
+    border-radius:10px;
+    font-size:0.9rem;
+}
+
+/* Referral link box */
+.ref-link {
+    padding:0.5rem;
+    font-size:0.85rem;
+    margin:0.4rem 0;
+}
+
+/* Level bar */
+.level-bar {
+    height:5px;
+}
+
+#current-level {
+    font-size:1rem;
+}
+
+/* Buttons smaller */
+button {
+    padding:0.6rem;
+    font-size:0.9rem;
+}
+        
+    </style>
+</head>
+<body>
+
+<!-- Loading Screen -->
+<div id="loading-screen">
+    <div class="loader-logo">
+        <img src="https://i.imgur.com/Qlbz9Vs.png" alt="Fast Money">
+        <div class="loader-ring"></div>
+    </div>
+    <p style="margin-top:20px;font-size:1.2rem;">Fast Money</p>
+</div>
+
+<!-- Auth Screen -->
+<div id="auth-screen">
+    <div style="text-align:center;padding:2.5rem 1rem 1.5rem;">
+        <div class="logo-container" style="margin:0 auto 1rem;">
+            <img src="https://i.imgur.com/Qlbz9Vs.png" alt="Fast Money" class="logo">
+        </div>
+        <h1 style="color:#1f2937;font-size:1.8rem;">Fast Money</h1>
+    </div>
+    <div class="container">
+        <div class="section">
+            <h2 id="auth-title">Create Account</h2>
+            <div id="signup-form">
+                <input type="text" id="signup-nickname" placeholder="Nickname" required>
+                <input type="email" id="signup-email" placeholder="Email Address" required>
+                <input type="password" id="signup-password" placeholder="Password (min 6 characters)" onkeyup="checkPasswordStrength()" required>
+                <div id="password-hint" class="password-hint">Password should be at least 6 characters</div>
+                <input type="password" id="signup-confirm-password" placeholder="Confirm Password" required>
+                <button onclick="signUp()">Create Account</button>
+                <p style="text-align:center;margin-top:1.2rem;">Already have an account? <span style="color:#3b82f6;cursor:pointer;" onclick="switchToLogin()">Login</span></p>
+            </div>
+            <div id="login-form" class="hidden">
+                <input type="email" id="login-email" placeholder="Email Address" required>
+                <input type="password" id="login-password" placeholder="Password" required>
+                <button onclick="login()">Login</button>
+                <p style="text-align:center;margin-top:1.2rem;">Don't have an account? <span style="color:#3b82f6;cursor:pointer;" onclick="switchToSignup()">Sign Up</span></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main App -->
+<div id="main-app" class="hidden">
+    <header>
+        <div class="logo-container"><img src="https://i.imgur.com/Qlbz9Vs.png" alt="Fast Money" class="logo"></div>
+        <div class="balance" id="balance">₦0.00</div>
+        <div class="user-info" id="nickname-display">User</div>
+    </header>
+
+    <!-- Home Page -->
+    <div id="home-page" class="container">
+        <div class="small-section">
+            <h2 id="current-level" style="text-align:center;margin-bottom:0.5rem;">Newbie</h2>
+            <div class="level-bar"><div id="level-progress" class="level-fill" style="width:0%"></div></div>
+            <button onclick="showLevelDetails()" style="background:#3b82f6;color:white;margin-top:0.6rem;">View All Levels</button>
+        </div>
+
+        <div class="small-section">
+            <h2>Referral Link</h2>
+            <div id="referral-area">
+                <div class="referral-box" id="pay-box">
+                    <p><strong>Activate your account</strong></p>
+                    <button onclick="initiateSquadPayment()" class="green">Pay ₦1,000 Now</button>
+                </div>
+                <div id="link-box" class="hidden">
+                    <p>Your Referral Link</p>
+                    <div class="ref-link" id="ref-link-text">https://YOURDOMAIN.com/?ref=nickname</div>
+                    <button onclick="copyRefLink()">Copy Link</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="small-section">
+            <h2>My Referrals</h2>
+            <div id="referrals-list" style="max-height:220px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- Withdrawal Page -->
+    <div id="withdraw-page" class="hidden container">
+        <div class="small-section">
+            <h2>Withdrawal</h2>
+            <p>Balance: <strong id="withdraw-balance">₦0.00</strong></p>
+
+            <div id="pending-status" class="pending-red hidden">You have a pending withdrawal. Please wait for approval.</div>
+
+            <div id="bank-info-display" class="hidden">
+                <p><strong>Saved Bank:</strong> <span id="saved-bank"></span></p>
+                <button onclick="editBankDetails()">Edit Bank Info</button>
+            </div>
+
+            <div id="bank-form">
+                <h3>Bank Details</h3>
+                <input type="text" id="account-name" placeholder="Account Name">
+                <input type="text" id="account-number" placeholder="Account Number">
+                <input type="text" id="bank-search" placeholder="Search bank name" onkeyup="filterBanks()">
+                <select id="bank-select"></select>
+                <button onclick="saveBankDetails()">Save Bank Details</button>
+            </div>
+
+            <h3>Select Amount</h3>
+            <select id="amount-select" style="margin-bottom:1rem;">
+                <option value="">Choose amount</option>
+            </select>
+            <button id="withdraw-btn" onclick="requestWithdrawal()" class="green">Request Withdrawal</button>
+        </div>
+    </div>
+
+    <!-- Leaderboard -->
+    <div id="leaderboard-page" class="hidden container">
+        <div class="small-section">
+            <h2>Leaderboard</h2>
+            <div id="leaderboard-list" style="max-height:380px;overflow-y:auto;"></div>
+        </div>
+    </div>
+
+    <!-- About -->
+    <div id="about-page" class="hidden container">
+        <div class="small-section">
+            <h2>About Fast Money</h2>
+            <video id="advert-video" autoplay loop muted playsinline style="width:100%;border-radius:16px;margin:1rem 0;">
+                <source src="YOUR_ADVERT_VIDEO_URL_HERE.mp4" type="video/mp4">
+            </video>
+            <div id="about-content"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Footer -->
+<footer id="main-footer" class="hidden">
+    <div class="footer-btn active" onclick="navigateTo('home')"><span class="material-icons">home</span><span>Home</span></div>
+    <div class="footer-btn" onclick="navigateTo('withdraw')"><span class="material-icons">account_balance_wallet</span><span>Withdraw</span></div>
+    <div class="footer-btn" onclick="navigateTo('leaderboard')"><span class="material-icons">leaderboard</span><span>Rank</span></div>
+    <div class="footer-btn" onclick="navigateTo('about')"><span class="material-icons">info</span><span>About</span></div>
+</footer>
+
+<script>
+// Firebase Config
+const firebaseConfig = {
+  apiKey: "AIzaSyC5imHNn6W2LzJLZDpuNa18n70V6Yf4iHo",
+  authDomain: "fastmoney-bc060.firebaseapp.com",
+  projectId: "fastmoney-bc060",
+  storageBucket: "fastmoney-bc060.firebasestorage.app",
+  messagingSenderId: "10806087631",
+  appId: "1:10806087631:web:8040405398a56e6a1a4cba"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+let currentUser = null;
+let userDocRef = null;
+
+const banks = ["Access Bank","Zenith Bank","Guaranty Trust Bank","First Bank of Nigeria","United Bank for Africa","Fidelity Bank","Union Bank of Nigeria","Stanbic IBTC Bank","Sterling Bank","First City Monument Bank","Wema Bank","Polaris Bank","Ecobank Nigeria","Keystone Bank","Unity Bank","Jaiz Bank","Titan Trust Bank","Providus Bank","SunTrust Bank Nigeria","Coronation Merchant Bank","FBNQuest Merchant Bank","Rand Merchant Bank Nigeria","Nova Merchant Bank","Greenwich Merchant Bank","OPay","PalmPay","Kuda Bank","Moniepoint","SmartCash Payment Service Bank","Paga","Carbon","FairMoney","VBank","ALAT by Wema","VFD Microfinance Bank","Rubies Microfinance Bank","Sparkle Microfinance Bank","Eyowo Microfinance Bank","Mint Finex Microfinance Bank","Carbon Microfinance Bank","FairMoney Microfinance Bank","Accion Microfinance Bank","LAPO Microfinance Bank","AB Microfinance Bank","Addosser Microfinance Bank","Covenant Microfinance Bank","NPF Microfinance Bank","Page Microfinance Bank","Regent Microfinance Bank","Virtue Microfinance Bank"];
+
+// Loading
+function showLoading() { 
+    document.getElementById('loading-screen').style.display = 'flex'; 
+}
+function hideLoading() { 
+    document.getElementById('loading-screen').style.display = 'none'; 
+}
+
+// Footer
+function showFooter() { 
+    document.getElementById('main-footer').classList.remove('hidden'); 
+}
+
+// Password hint
+function checkPasswordStrength() {
+    const pass = document.getElementById('signup-password').value;
+    const hint = document.getElementById('password-hint');
+    if (pass.length >= 6) {
+        hint.textContent = "✓ Good password";
+        hint.classList.add('valid');
+    } else {
+        hint.textContent = "Password should be at least 6 characters";
+        hint.classList.remove('valid');
+    }
+}
+
+// Toggle forms
+function switchToLogin() {
+    document.getElementById('signup-form').classList.add('hidden');
+    document.getElementById('login-form').classList.remove('hidden');
+    document.getElementById('auth-title').textContent = 'Login';
+}
+function switchToSignup() {
+    document.getElementById('login-form').classList.add('hidden');
+    document.getElementById('signup-form').classList.remove('hidden');
+    document.getElementById('auth-title').textContent = 'Create Account';
+}
+
+// Signup & Login
+async function signUp() {
+    showLoading();
+    const nickname = document.getElementById('signup-nickname').value.trim();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const confirmPassword = document.getElementById('signup-confirm-password').value;
+
+    if (!nickname || !email || !password || !confirmPassword) {
+        hideLoading();
+        return alert("❌ All fields are required");
+    }
+    if (password.length < 6) {
+        hideLoading();
+        return alert("❌ Password must be at least 6 characters");
+    }
+    if (password !== confirmPassword) {
+        hideLoading();
+        return alert("❌ Passwords do not match");
+    }
+
+    try {
+        const cred = await auth.createUserWithEmailAndPassword(email, password);
+        await db.collection('users').doc(cred.user.uid).set({
+            nickname: nickname,
+            email: email,
+            balance: 0,
+            referrals: 0,
+            paid: false,
+            level: "Newbie",
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert("✅ Account created successfully!\n\nLogin with your Email and Password");
+        switchToLogin();
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+    hideLoading();
+}
+
+async function login() {
+    showLoading();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+
+    if (!email || !password) {
+        hideLoading();
+        return alert("❌ Email and Password are required");
+    }
+
+    try {
+        const cred = await auth.signInWithEmailAndPassword(email, password);
+        const doc = await db.collection('users').doc(cred.user.uid).get();
+        if (!doc.exists) throw new Error("User profile not found");
+
+        currentUser = doc.data();
+        currentUser.uid = cred.user.uid;
+        userDocRef = db.collection('users').doc(cred.user.uid);
+
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('nickname-display').textContent = currentUser.nickname.toUpperCase();
+
+        showFooter();
+        loadHome();
+    } catch (e) {
+        alert("Login failed: " + e.message);
+    }
+    hideLoading();
+}
+
+// Load Home
+async function loadHome() {
+    const snap = await userDocRef.get();
+    currentUser = snap.data();
+    currentUser.uid = userDocRef.id;
+
+    document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
+    document.getElementById('current-level').textContent = currentUser.level || "Newbie";
+
+    const progress = Math.min(((currentUser.referrals || 0) / 100) * 100, 100);
+    document.getElementById('level-progress').style.width = `${progress}%`;
+
+    if (currentUser.paid) {
+        document.getElementById('pay-box').classList.add('hidden');
+        document.getElementById('link-box').classList.remove('hidden');
+        document.getElementById('ref-link-text').textContent = `https://YOURDOMAIN.com/?ref=${currentUser.nickname}`;
+    } else {
+        document.getElementById('pay-box').classList.remove('hidden');
+        document.getElementById('link-box').classList.add('hidden');
+    }
+
+    document.getElementById('referrals-list').innerHTML = `<div class="list-item">Total Referrals: ${currentUser.referrals || 0}</div>`;
+}
+
+// Payment
+function initiateSquadPayment() {
+    if (!currentUser) return alert("Please login first");
+    const squadInstance = new squad({
+        key: "pk_cb3dfacd4666ddefe368d173d1b4a23e840c0f72",
+        email: currentUser.email,
+        amount: 100000,
+        currency_code: "NGN",
+        first_name: currentUser.nickname,
+        onClose: () => alert("Payment cancelled"),
+        onSuccess: async () => {
+            await userDocRef.update({ paid: true });
+            alert("✅ Payment successful! Referral link activated.");
+            loadHome();
+        }
+    });
+    squadInstance.setup();
+    squadInstance.open();
+}
+
+function copyRefLink() {
+    const text = document.getElementById('ref-link-text').textContent;
+    navigator.clipboard.writeText(text);
+    alert("✅ Link copied!");
+}
+
+function showLevelDetails() {
+    alert("Levels:\n0–9 → Newbie\n10–19 → Amateur\n20–39 → Pro\n40–59 → Expert\n60–99 → Legendary\n100+ → God Mode");
+}
+
+// Navigation
+function navigateTo(page) {
+    document.querySelectorAll('#home-page,#withdraw-page,#leaderboard-page,#about-page').forEach(el => el.classList.add('hidden'));
+    
+    if (page === 'home') {
+        document.getElementById('home-page').classList.remove('hidden');
+        loadHome();
+    } else if (page === 'withdraw') {
+        document.getElementById('withdraw-page').classList.remove('hidden');
+        loadWithdrawPage();
+    } else if (page === 'leaderboard') {
+        document.getElementById('leaderboard-page').classList.remove('hidden');
+        loadLeaderboard();
+    } else if (page === 'about') {
+        document.getElementById('about-page').classList.remove('hidden');
+        document.getElementById('advert-video').play();
+        loadAboutContent();
+    }
+}
+
+// FIXED WITHDRAWAL PAGE
+async function loadWithdrawPage() {
+    showLoading();
+
+    try {
+        const snap = await userDocRef.get();
+        if (!snap.exists) throw new Error("User data not found");
+
+        currentUser = snap.data();
+        currentUser.uid = userDocRef.id;   // Ensure uid is always set
+
+        document.getElementById('withdraw-balance').textContent = 
+            `₦${(currentUser.balance || 0).toFixed(2)}`;
+
+        // Safe pending check
+        let hasPending = false;
+        if (currentUser.uid) {
+            const pendingSnap = await db.collection('withdrawals')
+                .where('userId', '==', currentUser.uid)
+                .where('status', '==', 'pending')
+                .get();
+            hasPending = !pendingSnap.empty;
+        }
+
+        const pendingEl = document.getElementById('pending-status');
+        const withdrawBtn = document.getElementById('withdraw-btn');
+        const bankForm = document.getElementById('bank-form');
+        const bankDisplay = document.getElementById('bank-info-display');
+
+        if (hasPending) {
+            pendingEl.classList.remove('hidden');
+            withdrawBtn.classList.add('disabled');
+            withdrawBtn.disabled = true;
+            bankForm.classList.add('hidden');
+            bankDisplay.classList.add('hidden');
+        } else {
+            pendingEl.classList.add('hidden');
+            withdrawBtn.classList.remove('disabled');
+            withdrawBtn.disabled = false;
+
+            if (currentUser.bankDetails && currentUser.bankDetails.bank) {
+                bankDisplay.classList.remove('hidden');
+                bankForm.classList.add('hidden');
+                document.getElementById('saved-bank').textContent = 
+                    `${currentUser.bankDetails.bank} - ${currentUser.bankDetails.accountNumber || 'N/A'}`;
+            } else {
+                bankDisplay.classList.add('hidden');
+                bankForm.classList.remove('hidden');
+            }
+        }
+
+        populateBanks();
+        populateAmountOptions();
+
+    } catch (e) {
+        console.error("Withdraw page error:", e);
+        alert("Error loading withdrawal page: " + e.message);
+    } finally {
+        hideLoading();
+    }
+}
+
+function editBankDetails() {
+    document.getElementById('bank-info-display').classList.add('hidden');
+    document.getElementById('bank-form').classList.remove('hidden');
+}
+
+function populateBanks() {
+    const select = document.getElementById('bank-select');
+    select.innerHTML = '<option value="">Select Bank</option>';
+    banks.forEach(b => {
+        const opt = document.createElement('option');
+        opt.value = b;
+        opt.textContent = b;
+        select.appendChild(opt);
+    });
+}
+
+function filterBanks() {
+    const term = document.getElementById('bank-search').value.toLowerCase();
+    Array.from(document.getElementById('bank-select').options).forEach(opt => {
+        opt.style.display = opt.text.toLowerCase().includes(term) ? '' : 'none';
+    });
+}
+
+function populateAmountOptions() {
+    const select = document.getElementById('amount-select');
+    select.innerHTML = '<option value="">Choose amount</option>';
+    for (let amt = 5000; amt <= 100000; amt += 5000) {
+        const option = document.createElement('option');
+        option.value = amt;
+        option.textContent = `₦${amt.toLocaleString()}`;
+        select.appendChild(option);
+    }
+}
+
+async function saveBankDetails() {
+    const name = document.getElementById('account-name').value.trim();
+    const number = document.getElementById('account-number').value.trim();
+    const bank = document.getElementById('bank-select').value;
+
+    if (!name || !number || !bank) {
+        return alert("❌ Please fill all bank details");
+    }
+
+    await userDocRef.update({ 
+        bankDetails: {accountName: name, accountNumber: number, bank} 
+    });
+    alert("✅ Bank details saved successfully");
+    loadWithdrawPage();
+}
+
+async function requestWithdrawal() {
+    const amountStr = document.getElementById('amount-select').value;
+    const amount = parseInt(amountStr);
+
+    if (!amount) return alert("❌ Please select an amount");
+
+    if (!currentUser.bankDetails) {
+        return alert("❌ Please save your bank details first");
+    }
+
+    const currentBalance = currentUser.balance || 0;
+
+    if (amount > currentBalance) {
+        return alert("❌ Insufficient balance");
+    }
+
+    try {
+        // 1️⃣ Create withdrawal request
+        await db.collection('withdrawals').add({
+            userId: currentUser.uid,
+            nickname: currentUser.nickname || "Unknown",
+            amount: amount,
+            bankDetails: currentUser.bankDetails,
+            status: 'pending',
+            requestedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            balanceBefore: currentBalance   // This helps admin see original balance
+        });
+
+        // 2️⃣ Immediately reduce user balance
+        await userDocRef.update({
+            balance: currentBalance - amount
+        });
+
+        alert(`✅ Withdrawal request of ₦${amount.toLocaleString()} sent successfully.`);
+        loadWithdrawPage();
+        loadHome(); // Refresh balance display
+
+    } catch (e) {
+        alert("Error sending withdrawal: " + e.message);
+    }
+}
+async function loadLeaderboard() {
+    const listEl = document.getElementById('leaderboard-list');
+    listEl.innerHTML = 'Loading...';
+
+    try {
+        const snap = await db.collection('users').orderBy('balance', 'desc').get();
+        listEl.innerHTML = '';
+
+        if (snap.empty) {
+            listEl.innerHTML = '<div class="list-item">No users yet.</div>';
+            return;
+        }
+
+        let rank = 1;
+        snap.forEach(doc => {
+            const data = doc.data();
+            listEl.innerHTML += `
+                <div class="list-item">
+                    <strong>${rank}. ${data.nickname || 'User'}</strong><br>
+                    Balance: ₦${(data.balance || 0).toFixed(2)}<br>
+                    Level: ${data.level || 'Newbie'}
+                </div>
+            `;
+            rank++;
+        });
+    } catch (e) {
+        listEl.innerHTML = '<div class="list-item">Error loading leaderboard.</div>';
+    }
+}
+
+async function loadAboutContent() {
+    const aboutDoc = await db.collection('site_info').doc('about').get();
+    const contentDiv = document.getElementById('about-content');
+    if (aboutDoc.exists && aboutDoc.data().content) {
+        contentDiv.innerHTML = `<p>${aboutDoc.data().content}</p>`;
+    } else {
+        contentDiv.innerHTML = '<p>No content available yet.</p>';
+    }
+}
+
+// Start the app
+document.addEventListener('DOMContentLoaded', () => {
+    hideLoading();
+});
+</script>
+</body>
+</html>
