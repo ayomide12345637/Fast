@@ -581,25 +581,29 @@ async function loadHome() {
         currentUser.referralCode = newCode;
     }
 
-    // 🔹 Give referral reward if not given
-    if (currentUser.paid && currentUser.referredBy && !currentUser.rewardGiven) {
-        const refQuery = await db.collection('users')
-            .where('referralCode', '==', currentUser.referredBy)
-            .get();
+   // 🔹 Give referral reward if not already given
+if (currentUser.paid && currentUser.referredBy && !currentUser.rewardGiven) {
 
-        if (!refQuery.empty) {
-            const refDoc = refQuery.docs[0];
+    // Find the referrer by referralCode
+    const refQuery = await db.collection('users')
+        .where('referralCode', '==', currentUser.referredBy)
+        .get();
 
-            await refDoc.ref.update({
-                referrals: firebase.firestore.FieldValue.increment(1),
-                balance: firebase.firestore.FieldValue.increment(500)
-            });
+    if (!refQuery.empty) {
+        const refDoc = refQuery.docs[0];
 
-            await userDocRef.update({ rewardGiven: true });
+        // Increment referrals and balance for the referrer
+        await refDoc.ref.update({
+            referrals: firebase.firestore.FieldValue.increment(1),
+            balance: firebase.firestore.FieldValue.increment(500) // Set reward amount
+        });
 
-            console.log("✅ Missed referral fixed");
-        }
+        // Mark current user as rewardGiven
+        await userDocRef.update({ rewardGiven: true });
+
+        console.log("✅ Referral reward fixed for old user");
     }
+}
    
 
     document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
@@ -608,15 +612,21 @@ async function loadHome() {
     const progress = Math.min(((currentUser.referrals || 0) / 100) * 100, 100);
     document.getElementById('level-progress').style.width = `${progress}%`;
 
-    if (currentUser.paid) {
+// With this:
+userDocRef = firebase.firestore().collection('users').doc(currentUser.uid);
+
+userDocRef.onSnapshot(doc => {
+    const data = doc.data();
+    if (data.paid && data.referralCode) {
         document.getElementById('pay-box').classList.add('hidden');
         document.getElementById('link-box').classList.remove('hidden');
-        document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
+        document.getElementById('ref-link-text').textContent =
+            `https://fastmoney-t9sb.onrender.com/?ref=${data.referralCode}`;
     } else {
         document.getElementById('pay-box').classList.remove('hidden');
         document.getElementById('link-box').classList.add('hidden');
     }
-
+});
     loadReferrals();
 }
 
@@ -673,6 +683,30 @@ function initiateSquadPayment() {
     document.getElementById('link-box').classList.remove('hidden');
     document.getElementById('ref-link-text').textContent =
         `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
+
+// -------------------------
+// Give referral reward if user has a referrer
+// -------------------------
+if (currentUser.referredBy && !currentUser.rewardGiven) {
+    const refQuery = await db.collection('users')
+        .where('referralCode', '==', currentUser.referredBy)
+        .get();
+
+    if (!refQuery.empty) {
+        const refDoc = refQuery.docs[0];
+
+        // Increment referrals and balance for the referrer
+        await refDoc.ref.update({
+            referrals: firebase.firestore.FieldValue.increment(1),
+            balance: firebase.firestore.FieldValue.increment(500) // Set your reward amount
+        });
+
+        // Mark current user as rewardGiven
+        await userDocRef.update({ rewardGiven: true });
+
+        console.log("✅ Referral reward given successfully");
+    }
+}
 
     await loadHome();
 }
@@ -919,4 +953,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>
-</html>
+</html>    
