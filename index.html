@@ -560,18 +560,30 @@ async function loadHome() {
     const snap = await userDocRef.get();
     currentUser = { ...snap.data(), uid: snap.id };
 
+    // Ensure referral code exists
     if (!currentUser.referralCode) {
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
         await userDocRef.update({ referralCode: newCode });
         currentUser.referralCode = newCode;
     }
 
+    // Update level
     document.getElementById('current-level').textContent = currentUser.level || "Newbie";
     const progress = Math.min(((currentUser.referrals || 0) / 100) * 100, 100);
     document.getElementById('level-progress').style.width = `${progress}%`;
 
+    // Show referral link only if paid
+    if (currentUser.paid) {
+        document.getElementById('pay-box').classList.add('hidden');
+        document.getElementById('link-box').classList.remove('hidden');
+        document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
+    } else {
+        document.getElementById('pay-box').classList.remove('hidden');
+        document.getElementById('link-box').classList.add('hidden');
+    }
+
     loadReferrals();
-}
+}    
 
 // PAYMENT
 function initiateSquadPayment() {
