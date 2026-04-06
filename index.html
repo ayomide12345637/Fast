@@ -511,7 +511,11 @@ async function signUp() {
         let urlParams = new URLSearchParams(window.location.search);
         let ref = urlParams.get('ref');
 
-        const referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+        let referralCode;
+do {
+    referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+    const codeCheck = await db.collection('users').where('referralCode', '==', referralCode).get();
+} while (!codeCheck.empty);
 
         await db.collection('users').doc(cred.user.uid).set({
             nickname: nickname,
@@ -569,36 +573,34 @@ async function loadHome() {
     const snap = await userDocRef.get();
     currentUser = snap.data();
     currentUser.uid = userDocRef.id;
-// 🔥 FIX MISSED REFERRAL REWARD
-if (currentUser.paid && currentUser.referredBy && !currentUser.rewardGiven) {
 
-    const refQuery = await db.collection('users')
-        .where('referralCode', '==', currentUser.referredBy)
-        .get();
-
-    if (!refQuery.empty) {
-        const refDoc = refQuery.docs[0];
-
-        await refDoc.ref.update({
-            referrals: firebase.firestore.FieldValue.increment(1),
-            balance: firebase.firestore.FieldValue.increment(500)
-        });
-
-        await userDocRef.update({
-            rewardGiven: true
-        });
-
-        console.log("✅ Missed referral fixed");
-    }
-}
-    // Force referralCode for old users
+    // 🔹 Force referralCode for old users
     if (!currentUser.referralCode) {
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-        await userDocRef.update({
-            referralCode: newCode
-        });
+        await userDocRef.update({ referralCode: newCode });
         currentUser.referralCode = newCode;
     }
+
+    // 🔹 Give referral reward if not given
+    if (currentUser.paid && currentUser.referredBy && !currentUser.rewardGiven) {
+        const refQuery = await db.collection('users')
+            .where('referralCode', '==', currentUser.referredBy)
+            .get();
+
+        if (!refQuery.empty) {
+            const refDoc = refQuery.docs[0];
+
+            await refDoc.ref.update({
+                referrals: firebase.firestore.FieldValue.increment(1),
+                balance: firebase.firestore.FieldValue.increment(500)
+            });
+
+            await userDocRef.update({ rewardGiven: true });
+
+            console.log("✅ Missed referral fixed");
+        }
+    }
+   
 
     document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
     document.getElementById('current-level').textContent = currentUser.level || "Newbie";
@@ -660,33 +662,20 @@ function initiateSquadPayment() {
         first_name: currentUser.nickname,
         onClose: () => alert("Payment cancelled"),
         onSuccess: async () => {
-            await userDocRef.update({ 
-    paid: true,
-    rewardGiven: false
-});
+    await userDocRef.update({ 
+        paid: true,
+        rewardGiven: false
+    });
 
-            if (currentUser.referredBy) {
-                const refQuery = await db.collection('users')
-                    .where('referralCode', '==', currentUser.referredBy)
-                    .get();
+    alert("✅ Payment successful! Referral link activated.");
 
-                if (!refQuery.empty) {
-                    const refDoc = refQuery.docs[0];
-                    await refDoc.ref.update({
-                        referrals: firebase.firestore.FieldValue.increment(1),
-                        balance: firebase.firestore.FieldValue.increment(500)
-                    });
-                }
-            }
+    document.getElementById('pay-box').classList.add('hidden');
+    document.getElementById('link-box').classList.remove('hidden');
+    document.getElementById('ref-link-text').textContent =
+        `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
 
-            alert("✅ Payment successful! Referral link activated.");
-
-            document.getElementById('pay-box').classList.add('hidden');
-            document.getElementById('link-box').classList.remove('hidden');
-            document.getElementById('ref-link-text').textContent = `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
-
-            loadHome();
-        }
+    await loadHome();
+}
     });
 
     squadInstance.setup();
