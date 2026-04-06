@@ -601,17 +601,27 @@ function initiateSquadPayment() {
 
             alert("✅ Payment successful! Referral link activated.");
 
-            if (currentUser.referredBy) {
-                const refQuery = await db.collection('users').where('referralCode', '==', currentUser.referredBy).get();
-                if (!refQuery.empty) {
-                    const refDoc = refQuery.docs[0];
-                    await refDoc.ref.update({
-                        referrals: firebase.firestore.FieldValue.increment(1),
-                        balance: firebase.firestore.FieldValue.increment(500)
-                    });
-                    await userDocRef.update({ rewardGiven: true });
-                }
-            }
+         if (currentUser.referredBy && !currentUser.rewardGiven) {
+    const refQuery = await db.collection('users')
+        .where('referralCode', '==', currentUser.referredBy)
+        .get();
+
+    if (!refQuery.empty) {
+        const refDoc = refQuery.docs[0];
+        try {
+            await refDoc.ref.update({
+                referrals: firebase.firestore.FieldValue.increment(1),
+                balance: firebase.firestore.FieldValue.increment(500)
+            });
+            await userDocRef.update({ rewardGiven: true });
+            console.log("✅ Referral reward applied successfully");
+        } catch (err) {
+            console.error("❌ Error updating referrer balance:", err.message);
+        }
+    } else {
+        console.log("⚠ Referrer not found for code:", currentUser.referredBy);
+    }
+}
             loadHome();
         }
     });
