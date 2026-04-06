@@ -10,6 +10,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
     <script src="https://checkout.squadco.com/widget/squad.min.js"></script>
+    
     <style>
   :root { 
     --primary: #10b981; 
@@ -447,17 +448,9 @@ let userDocRef = null;
 const banks = ["Access Bank","Zenith Bank","Guaranty Trust Bank","First Bank of Nigeria","United Bank for Africa","Fidelity Bank","Union Bank of Nigeria","Stanbic IBTC Bank","Sterling Bank","First City Monument Bank","Wema Bank","Polaris Bank","Ecobank Nigeria","Keystone Bank","Unity Bank","Jaiz Bank","Titan Trust Bank","Providus Bank","SunTrust Bank Nigeria","Coronation Merchant Bank","FBNQuest Merchant Bank","Rand Merchant Bank Nigeria","Nova Merchant Bank","Greenwich Merchant Bank","OPay","PalmPay","Kuda Bank","Moniepoint","SmartCash Payment Service Bank","Paga","Carbon","FairMoney","VBank","ALAT by Wema","VFD Microfinance Bank","Rubies Microfinance Bank","Sparkle Microfinance Bank","Eyowo Microfinance Bank","Mint Finex Microfinance Bank","Carbon Microfinance Bank","FairMoney Microfinance Bank","Accion Microfinance Bank","LAPO Microfinance Bank","AB Microfinance Bank","Addosser Microfinance Bank","Covenant Microfinance Bank","NPF Microfinance Bank","Page Microfinance Bank","Regent Microfinance Bank","Virtue Microfinance Bank"];
 
 // Loading
-function showLoading() { 
-    document.getElementById('loading-screen').style.display = 'flex'; 
-}
-function hideLoading() { 
-    document.getElementById('loading-screen').style.display = 'none'; 
-}
-
-// Footer
-function showFooter() { 
-    document.getElementById('main-footer').classList.remove('hidden'); 
-}
+function showLoading() { document.getElementById('loading-screen').style.display = 'flex'; }
+function hideLoading() { document.getElementById('loading-screen').style.display = 'none'; }
+function showFooter() { document.getElementById('main-footer').classList.remove('hidden'); }
 
 // Password hint
 function checkPasswordStrength() {
@@ -484,7 +477,7 @@ function switchToSignup() {
     document.getElementById('auth-title').textContent = 'Create Account';
 }
 
-// ==================== SIGNUP WITH RANDOM REFERRAL CODE ====================
+// SIGNUP
 async function signUp() {
     showLoading();
     const nickname = document.getElementById('signup-nickname').value.trim();
@@ -493,39 +486,29 @@ async function signUp() {
     const confirmPassword = document.getElementById('signup-confirm-password').value;
 
     if (!nickname || !email || !password || !confirmPassword) {
-        hideLoading();
-        return alert("❌ All fields are required");
+        hideLoading(); return alert("❌ All fields are required");
     }
     if (password.length < 6) {
-        hideLoading();
-        return alert("❌ Password must be at least 6 characters");
+        hideLoading(); return alert("❌ Password must be at least 6 characters");
     }
     if (password !== confirmPassword) {
-        hideLoading();
-        return alert("❌ Passwords do not match");
+        hideLoading(); return alert("❌ Passwords do not match");
     }
 
     try {
         const cred = await auth.createUserWithEmailAndPassword(email, password);
-        
-        let urlParams = new URLSearchParams(window.location.search);
-        let ref = urlParams.get('ref');
+        const ref = new URLSearchParams(window.location.search).get('ref');
 
         let referralCode;
-do {
-    referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const codeCheck = await db.collection('users').where('referralCode', '==', referralCode).get();
-} while (!codeCheck.empty);
+        do {
+            referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+            const check = await db.collection('users').where('referralCode', '==', referralCode).get();
+            if (check.empty) break;
+        } while (true);
 
         await db.collection('users').doc(cred.user.uid).set({
-            nickname: nickname,
-            email: email,
-            balance: 0,
-            referrals: 0,
-            paid: false,
-            level: "Newbie",
-            referralCode: referralCode,
-            referredBy: ref || null,
+            nickname, email, balance: 0, referrals: 0, paid: false, rewardGiven: false,
+            level: "Newbie", referralCode, referredBy: ref || null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -537,30 +520,27 @@ do {
     hideLoading();
 }
 
+// LOGIN
 async function login() {
     showLoading();
     const email = document.getElementById('login-email').value.trim();
     const password = document.getElementById('login-password').value;
 
-    if (!email || !password) {
-        hideLoading();
-        return alert("❌ Email and Password are required");
-    }
-
     try {
         const cred = await auth.signInWithEmailAndPassword(email, password);
-        const doc = await db.collection('users').doc(cred.user.uid).get();
+        userDocRef = db.collection('users').doc(cred.user.uid);
+
+        const doc = await userDocRef.get();
         if (!doc.exists) throw new Error("User profile not found");
 
-        currentUser = doc.data();
-        currentUser.uid = cred.user.uid;
-        userDocRef = db.collection('users').doc(cred.user.uid);
+        currentUser = { ...doc.data(), uid: cred.user.uid };
 
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
         document.getElementById('nickname-display').textContent = currentUser.nickname.toUpperCase();
 
         showFooter();
+        setupRealtimeListener();
         loadHome();
     } catch (e) {
         alert("Login failed: " + e.message);
@@ -568,99 +548,32 @@ async function login() {
     hideLoading();
 }
 
-// ==================== LOAD HOME WITH AUTO FIX ====================
+function setupRealtimeListener() {
+    userDocRef.onSnapshot(doc => {
+        if (!doc.exists) return;
+        currentUser = { ...doc.data(), uid: doc.id };
+        document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
+    });
+}
+
 async function loadHome() {
     const snap = await userDocRef.get();
-    currentUser = snap.data();
-    currentUser.uid = userDocRef.id;
+    currentUser = { ...snap.data(), uid: snap.id };
 
-    // 🔹 Force referralCode for old users
     if (!currentUser.referralCode) {
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
         await userDocRef.update({ referralCode: newCode });
         currentUser.referralCode = newCode;
     }
 
-   // 🔹 Give referral reward if not already given
-if (currentUser.paid && currentUser.referredBy && !currentUser.rewardGiven) {
-
-    // Find the referrer by referralCode
-    const refQuery = await db.collection('users')
-        .where('referralCode', '==', currentUser.referredBy)
-        .get();
-
-    if (!refQuery.empty) {
-        const refDoc = refQuery.docs[0];
-
-        // Increment referrals and balance for the referrer
-        await refDoc.ref.update({
-            referrals: firebase.firestore.FieldValue.increment(1),
-            balance: firebase.firestore.FieldValue.increment(500) // Set reward amount
-        });
-
-        // Mark current user as rewardGiven
-        await userDocRef.update({ rewardGiven: true });
-
-        console.log("✅ Referral reward fixed for old user");
-    }
-}
-   
-
-    document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
     document.getElementById('current-level').textContent = currentUser.level || "Newbie";
-
     const progress = Math.min(((currentUser.referrals || 0) / 100) * 100, 100);
     document.getElementById('level-progress').style.width = `${progress}%`;
 
-// With this:
-userDocRef = firebase.firestore().collection('users').doc(currentUser.uid);
-
-userDocRef.onSnapshot(doc => {
-    const data = doc.data();
-    if (data.paid && data.referralCode) {
-        document.getElementById('pay-box').classList.add('hidden');
-        document.getElementById('link-box').classList.remove('hidden');
-        document.getElementById('ref-link-text').textContent =
-            `https://fastmoney-t9sb.onrender.com/?ref=${data.referralCode}`;
-    } else {
-        document.getElementById('pay-box').classList.remove('hidden');
-        document.getElementById('link-box').classList.add('hidden');
-    }
-});
     loadReferrals();
 }
 
-// ==================== PROTECTED REFERRALS ====================
-async function loadReferrals() {
-    const listEl = document.getElementById('referrals-list');
-    listEl.innerHTML = '';
-
-    if (!currentUser || !currentUser.referralCode) {
-        listEl.innerHTML = '<div class="list-item">No referral code yet.</div>';
-        return;
-    }
-
-    console.log("Referral Code:", currentUser.referralCode);
-
-    const snap = await db.collection('users')
-        .where('referredBy', '==', currentUser.referralCode)
-        .where('paid', '==', true)
-        .get();
-
-    if (snap.empty) {
-        listEl.innerHTML = '<div class="list-item">No referrals yet.</div>';
-        return;
-    }
-
-    listEl.innerHTML = `<div class="list-item"><strong>Total Referrals: ${snap.size}</strong></div>`;
-
-    snap.forEach(doc => {
-        const data = doc.data();
-        listEl.innerHTML += `<div class="list-item">${data.nickname} - Paid</div>`;
-    });
-}
-
-// Payment with Referral Reward
+// PAYMENT
 function initiateSquadPayment() {
     if (!currentUser) return alert("Please login first");
 
@@ -672,44 +585,23 @@ function initiateSquadPayment() {
         first_name: currentUser.nickname,
         onClose: () => alert("Payment cancelled"),
         onSuccess: async () => {
-    await userDocRef.update({ 
-        paid: true,
-        rewardGiven: false
-    });
+            await userDocRef.update({ paid: true, rewardGiven: false });
 
-    alert("✅ Payment successful! Referral link activated.");
+            alert("✅ Payment successful! Referral link activated.");
 
-    document.getElementById('pay-box').classList.add('hidden');
-    document.getElementById('link-box').classList.remove('hidden');
-    document.getElementById('ref-link-text').textContent =
-        `https://fastmoney-t9sb.onrender.com/?ref=${currentUser.referralCode}`;
-
-// -------------------------
-// Give referral reward if user has a referrer
-// -------------------------
-if (currentUser.referredBy && !currentUser.rewardGiven) {
-    const refQuery = await db.collection('users')
-        .where('referralCode', '==', currentUser.referredBy)
-        .get();
-
-    if (!refQuery.empty) {
-        const refDoc = refQuery.docs[0];
-
-        // Increment referrals and balance for the referrer
-        await refDoc.ref.update({
-            referrals: firebase.firestore.FieldValue.increment(1),
-            balance: firebase.firestore.FieldValue.increment(500) // Set your reward amount
-        });
-
-        // Mark current user as rewardGiven
-        await userDocRef.update({ rewardGiven: true });
-
-        console.log("✅ Referral reward given successfully");
-    }
-}
-
-    await loadHome();
-}
+            if (currentUser.referredBy) {
+                const refQuery = await db.collection('users').where('referralCode', '==', currentUser.referredBy).get();
+                if (!refQuery.empty) {
+                    const refDoc = refQuery.docs[0];
+                    await refDoc.ref.update({
+                        referrals: firebase.firestore.FieldValue.increment(1),
+                        balance: firebase.firestore.FieldValue.increment(500)
+                    });
+                    await userDocRef.update({ rewardGiven: true });
+                }
+            }
+            loadHome();
+        }
     });
 
     squadInstance.setup();
@@ -744,9 +636,8 @@ function navigateTo(page) {
     }
 }
 
+// ==================== ALL YOUR ORIGINAL FUNCTIONS ====================
 
-
-// FIXED WITHDRAWAL PAGE
 async function loadWithdrawPage() {
     showLoading();
     try {
@@ -756,8 +647,7 @@ async function loadWithdrawPage() {
         currentUser = snap.data();
         currentUser.uid = userDocRef.id;
 
-        document.getElementById('withdraw-balance').textContent = 
-            `₦${(currentUser.balance || 0).toFixed(2)}`;
+        document.getElementById('withdraw-balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
 
         let hasPending = false;
         if (currentUser.uid) {
@@ -787,8 +677,7 @@ async function loadWithdrawPage() {
             if (currentUser.bankDetails && currentUser.bankDetails.bank) {
                 bankDisplay.classList.remove('hidden');
                 bankForm.classList.add('hidden');
-                document.getElementById('saved-bank').textContent = 
-                    `${currentUser.bankDetails.bank} - ${currentUser.bankDetails.accountNumber || 'N/A'}`;
+                document.getElementById('saved-bank').textContent = `${currentUser.bankDetails.bank} - ${currentUser.bankDetails.accountNumber || 'N/A'}`;
             } else {
                 bankDisplay.classList.add('hidden');
                 bankForm.classList.remove('hidden');
@@ -799,7 +688,6 @@ async function loadWithdrawPage() {
         populateAmountOptions();
 
     } catch (e) {
-        console.error("Withdraw page error:", e);
         alert("Error loading withdrawal page: " + e.message);
     } finally {
         hideLoading();
@@ -849,9 +737,7 @@ async function saveBankDetails() {
         return alert("❌ Please fill all bank details");
     }
 
-    await userDocRef.update({ 
-        bankDetails: {accountName: name, accountNumber: number, bank} 
-    });
+    await userDocRef.update({ bankDetails: {accountName: name, accountNumber: number, bank} });
     alert("✅ Bank details saved successfully");
     loadWithdrawPage();
 }
@@ -883,9 +769,7 @@ async function requestWithdrawal() {
             balanceBefore: currentBalance
         });
 
-        await userDocRef.update({
-            balance: currentBalance - amount
-        });
+        await userDocRef.update({ balance: currentBalance - amount });
 
         alert(`✅ Withdrawal request of ₦${amount.toLocaleString()} sent successfully.`);
         loadWithdrawPage();
@@ -893,6 +777,33 @@ async function requestWithdrawal() {
     } catch (e) {
         alert("Error sending withdrawal: " + e.message);
     }
+}
+
+async function loadReferrals() {
+    const listEl = document.getElementById('referrals-list');
+    listEl.innerHTML = '';
+
+    if (!currentUser || !currentUser.referralCode) {
+        listEl.innerHTML = '<div class="list-item">No referral code yet.</div>';
+        return;
+    }
+
+    const snap = await db.collection('users')
+        .where('referredBy', '==', currentUser.referralCode)
+        .where('paid', '==', true)
+        .get();
+
+    if (snap.empty) {
+        listEl.innerHTML = '<div class="list-item">No referrals yet.</div>';
+        return;
+    }
+
+    listEl.innerHTML = `<div class="list-item"><strong>Total Referrals: ${snap.size}</strong></div>`;
+
+    snap.forEach(doc => {
+        const data = doc.data();
+        listEl.innerHTML += `<div class="list-item">${data.nickname} - Paid</div>`;
+    });
 }
 
 async function loadLeaderboard() {
@@ -953,4 +864,4 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 </body>
-</html>    
+</html>
