@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta http-equiv="Permissions-Policy" content="accelerometer=(), camera=(), geolocation=(), gyroscope=()">
+<meta http-equiv="Permissions-Policy" content="accelerometer=(self), camera=(), geolocation=(), gyroscope=(self)">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fast Money</title>
@@ -64,6 +64,7 @@ header {
     font-weight:600; 
     color: white;
     text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
 }
 
 .user-info { 
@@ -209,7 +210,6 @@ footer {
     border-radius:12px; 
 }
 
-/* Withdrawal page improvements */
 #withdraw-page h3 {
     margin: 1.5rem 0 0.8rem;
 }
@@ -219,7 +219,6 @@ footer {
     font-size: 1.1rem;
 }
 
-/* Centered Loading */
 #loading-screen {
     position: fixed; 
     inset: 0; 
@@ -256,7 +255,6 @@ footer {
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Small sections */
 .small-section {
     margin-bottom:0.6rem;
     padding:0.7rem;
@@ -282,11 +280,15 @@ button {
     padding:0.6rem;
     font-size:0.9rem;
 }
+
+.reset-btn {
+    background: #ef4444;
+    margin-top: 1rem;
+}
     </style>
 </head>
 <body>
 
-<!-- Loading Screen -->
 <div id="loading-screen">
     <div class="loader-logo">
         <img src="https://i.imgur.com/Qlbz9Vs.png" alt="Fast Money">
@@ -295,7 +297,6 @@ button {
     <p style="margin-top:20px;font-size:1.2rem;">Fast Money</p>
 </div>
 
-<!-- Auth Screen -->
 <div id="auth-screen">
     <div style="text-align:center;padding:2.5rem 1rem 1.5rem;">
         <div class="logo-container" style="margin:0 auto 1rem;">
@@ -325,7 +326,6 @@ button {
     </div>
 </div>
 
-<!-- Main App -->
 <div id="main-app" class="hidden">
     <header>
         <div class="logo-container"><img src="https://i.imgur.com/Qlbz9Vs.png" alt="Fast Money" class="logo"></div>
@@ -333,7 +333,6 @@ button {
         <div class="user-info" id="nickname-display">User</div>
     </header>
 
-    <!-- Home Page -->
     <div id="home-page" class="container">
         <div class="small-section">
             <h2 id="current-level" style="text-align:center;margin-bottom:0.5rem;">Newbie</h2>
@@ -357,24 +356,24 @@ button {
         </div>
 
         <div class="small-section">
-            <h2>My Referrals</h2>
+            <h2>My Referrals (Paid Only)</h2>
             <div id="referrals-list" style="max-height:220px;overflow-y:auto;"></div>
+        </div>
+
+        <div class="small-section" id="admin-section" style="display:none;">
+            <button onclick="fixOverpaidBalance()" class="reset-btn">⚠️ FIX BALANCE (One Time)</button>
         </div>
     </div>
 
-    <!-- Withdrawal Page -->
     <div id="withdraw-page" class="hidden container">
         <div class="small-section">
             <h2>Withdrawal</h2>
             <p>Balance: <strong id="withdraw-balance">₦0.00</strong></p>
-
             <div id="pending-status" class="pending-red hidden">You have a pending withdrawal. Please wait for approval.</div>
-
             <div id="bank-info-display" class="hidden">
                 <p><strong>Saved Bank:</strong> <span id="saved-bank"></span></p>
                 <button onclick="editBankDetails()">Edit Bank Info</button>
             </div>
-
             <div id="bank-form">
                 <h3>Bank Details</h3>
                 <input type="text" id="account-name" placeholder="Account Name">
@@ -383,7 +382,6 @@ button {
                 <select id="bank-select"></select>
                 <button onclick="saveBankDetails()">Save Bank Details</button>
             </div>
-
             <h3>Select Amount</h3>
             <select id="amount-select" style="margin-bottom:1rem;">
                 <option value="">Choose amount</option>
@@ -392,7 +390,6 @@ button {
         </div>
     </div>
 
-    <!-- Leaderboard -->
     <div id="leaderboard-page" class="hidden container">
         <div class="small-section">
             <h2>Leaderboard</h2>
@@ -400,25 +397,23 @@ button {
         </div>
     </div>
 
-    <!-- About -->
     <div id="about-page" class="hidden container">
         <div class="small-section">
             <h2>About Fast Money</h2>
-<div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:16px;margin:1rem 0;">
-<iframe src="https://www.youtube.com/embed/hndXe80FKT4?loop=1&playlist=hndXe80FKT4"
-        frameborder="0"
-        allow="autoplay; encrypted-media"
-        allowfullscreen
-        style="position:absolute;top:0;left:0;width:100%;height:100%;">
-</iframe>
-</div>
+            <div style="position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:16px;margin:1rem 0;">
+                <iframe src="https://www.youtube.com/embed/hndXe80FKT4?loop=1&playlist=hndXe80FKT4"
+                        frameborder="0"
+                        allow="autoplay; encrypted-media"
+                        allowfullscreen
+                        style="position:absolute;top:0;left:0;width:100%;height:100%;">
+                </iframe>
+            </div>
             <button id="logout-btn" style="background:#ef4444;color:white;margin-top:1rem;padding:0.7rem;border:none;border-radius:10px;" onclick="logout()">Logout</button>
             <div id="about-content"></div>
         </div>
     </div>
 </div>
 
-<!-- Footer -->
 <footer id="main-footer" class="hidden">
     <div class="footer-btn active" onclick="navigateTo('home')"><span class="material-icons">home</span><span>Home</span></div>
     <div class="footer-btn" onclick="navigateTo('withdraw')"><span class="material-icons">account_balance_wallet</span><span>Withdraw</span></div>
@@ -427,7 +422,6 @@ button {
 </footer>
 
 <script>
-// Firebase Config
 const firebaseConfig = {
   apiKey: "AIzaSyC5imHNn6W2LzJLZDpuNa18n70V6Yf4iHo",
   authDomain: "fastmoney-bc060.firebaseapp.com",
@@ -447,12 +441,10 @@ let userDocRef = null;
 
 const banks = ["Access Bank","Zenith Bank","Guaranty Trust Bank","First Bank of Nigeria","United Bank for Africa","Fidelity Bank","Union Bank of Nigeria","Stanbic IBTC Bank","Sterling Bank","First City Monument Bank","Wema Bank","Polaris Bank","Ecobank Nigeria","Keystone Bank","Unity Bank","Jaiz Bank","Titan Trust Bank","Providus Bank","SunTrust Bank Nigeria","Coronation Merchant Bank","FBNQuest Merchant Bank","Rand Merchant Bank Nigeria","Nova Merchant Bank","Greenwich Merchant Bank","OPay","PalmPay","Kuda Bank","Moniepoint","SmartCash Payment Service Bank","Paga","Carbon","FairMoney","VBank","ALAT by Wema","VFD Microfinance Bank","Rubies Microfinance Bank","Sparkle Microfinance Bank","Eyowo Microfinance Bank","Mint Finex Microfinance Bank","Carbon Microfinance Bank","FairMoney Microfinance Bank","Accion Microfinance Bank","LAPO Microfinance Bank","AB Microfinance Bank","Addosser Microfinance Bank","Covenant Microfinance Bank","NPF Microfinance Bank","Page Microfinance Bank","Regent Microfinance Bank","Virtue Microfinance Bank"];
 
-// Loading
 function showLoading() { document.getElementById('loading-screen').style.display = 'flex'; }
 function hideLoading() { document.getElementById('loading-screen').style.display = 'none'; }
 function showFooter() { document.getElementById('main-footer').classList.remove('hidden'); }
 
-// Password hint
 function checkPasswordStrength() {
     const pass = document.getElementById('signup-password').value;
     const hint = document.getElementById('password-hint');
@@ -465,7 +457,6 @@ function checkPasswordStrength() {
     }
 }
 
-// Toggle forms
 function switchToLogin() {
     document.getElementById('signup-form').classList.add('hidden');
     document.getElementById('login-form').classList.remove('hidden');
@@ -477,7 +468,6 @@ function switchToSignup() {
     document.getElementById('auth-title').textContent = 'Create Account';
 }
 
-// SIGNUP
 async function signUp() {
     showLoading();
     const nickname = document.getElementById('signup-nickname').value.trim();
@@ -507,8 +497,9 @@ async function signUp() {
         } while (true);
 
         await db.collection('users').doc(cred.user.uid).set({
-            nickname, email, balance: 0, referrals: 0, paid: false, rewardGiven: false,
+            nickname, email, balance: 0, referrals: 0, paid: false,
             level: "Newbie", referralCode, referredBy: ref || null,
+            processedRewards: [], // Track which users gave reward
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
@@ -520,7 +511,6 @@ async function signUp() {
     hideLoading();
 }
 
-// LOGIN
 async function login() {
     showLoading();
     const email = document.getElementById('login-email').value.trim();
@@ -534,6 +524,12 @@ async function login() {
         if (!doc.exists) throw new Error("User profile not found");
 
         currentUser = { ...doc.data(), uid: cred.user.uid };
+        
+        // Initialize processedRewards array if it doesn't exist
+        if (!currentUser.processedRewards) {
+            await userDocRef.update({ processedRewards: [] });
+            currentUser.processedRewards = [];
+        }
 
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
@@ -560,19 +556,21 @@ async function loadHome() {
     const snap = await userDocRef.get();
     currentUser = { ...snap.data(), uid: snap.id };
 
-    // Ensure referral code exists
     if (!currentUser.referralCode) {
         const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
         await userDocRef.update({ referralCode: newCode });
         currentUser.referralCode = newCode;
     }
 
-    // Update level
+    if (!currentUser.processedRewards) {
+        await userDocRef.update({ processedRewards: [] });
+        currentUser.processedRewards = [];
+    }
+
     document.getElementById('current-level').textContent = currentUser.level || "Newbie";
     const progress = Math.min(((currentUser.referrals || 0) / 100) * 100, 100);
     document.getElementById('level-progress').style.width = `${progress}%`;
 
-    // Show referral link only if paid
     if (currentUser.paid) {
         document.getElementById('pay-box').classList.add('hidden');
         document.getElementById('link-box').classList.remove('hidden');
@@ -582,10 +580,180 @@ async function loadHome() {
         document.getElementById('link-box').classList.add('hidden');
     }
 
-    loadReferrals();
-}    
+    // Setup balance click - ONLY PROCESS NEW REWARDS
+    const balanceEl = document.getElementById('balance');
+    balanceEl.style.cursor = "pointer";
+    
+    const newBalanceEl = balanceEl.cloneNode(true);
+    balanceEl.parentNode.replaceChild(newBalanceEl, balanceEl);
+    newBalanceEl.addEventListener("click", async () => {
+        await processNewReferralRewards();
+    });
+    document.getElementById('balance').id = 'balance';
 
-// PAYMENT
+    await loadReferrals();
+}
+
+// MAIN FIXED FUNCTION - Only processes rewards for NEW paid users
+async function processNewReferralRewards() {
+    if (!currentUser) return;
+    if (!currentUser.paid) {
+        alert("⚠️ You need to activate your account first (Pay ₦1,000)");
+        return;
+    }
+
+    showLoading();
+    
+    try {
+        const snap = await userDocRef.get();
+        currentUser = { ...snap.data(), uid: snap.id };
+        
+        // Get processed rewards list
+        const processedRewards = currentUser.processedRewards || [];
+        
+        // Find ALL referred users
+        const referredUsers = await db.collection('users')
+            .where('referredBy', '==', currentUser.referralCode)
+            .get();
+        
+        let newRewardsCount = 0;
+        let newlyProcessedUsers = [];
+        
+        // Check each referred user
+        for (const doc of referredUsers.docs) {
+            const referredUser = doc.data();
+            const referredUserId = doc.id;
+            
+            // Only process if:
+            // 1. User has PAID (₦1000)
+            // 2. NOT already processed before
+            if (referredUser.paid === true && !processedRewards.includes(referredUserId)) {
+                newlyProcessedUsers.push(referredUserId);
+                newRewardsCount++;
+            }
+        }
+        
+        // Add rewards if any new users
+        if (newRewardsCount > 0) {
+            const rewardAmount = newRewardsCount * 500;
+            
+            // Update balance and add to processed list
+            await userDocRef.update({
+                balance: firebase.firestore.FieldValue.increment(rewardAmount),
+                referrals: firebase.firestore.FieldValue.increment(newRewardsCount),
+                processedRewards: firebase.firestore.FieldValue.arrayUnion(...newlyProcessedUsers)
+            });
+            
+            alert(`✅ +₦${rewardAmount} from ${newRewardsCount} new paid referral(s)!`);
+            
+            // Refresh display
+            const updated = await userDocRef.get();
+            currentUser = { ...updated.data(), uid: updated.id };
+            document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
+            await loadReferrals();
+        } else {
+            // No new rewards
+            const totalPaidReferrals = referredUsers.docs.filter(d => d.data().paid === true).length;
+            alert(`ℹ️ No new paid referrals.\nYou have ${totalPaidReferrals} total paid referral(s).\nBalance: ₦${(currentUser.balance || 0).toFixed(2)}`);
+        }
+        
+    } catch (e) {
+        alert("Error: " + e.message);
+    }
+    
+    hideLoading();
+}
+
+// FIX BALANCE FUNCTION - Run this once to fix your overpaid balance
+async function fixOverpaidBalance() {
+    if (!currentUser) return;
+    
+    const confirmFix = confirm("⚠️ This will reset your balance to the correct amount based on your actual paid referrals. Continue?");
+    if (!confirmFix) return;
+    
+    showLoading();
+    
+    try {
+        // Get all referred users
+        const referredUsers = await db.collection('users')
+            .where('referredBy', '==', currentUser.referralCode)
+            .get();
+        
+        // Count ONLY paid users
+        let paidReferralCount = 0;
+        let paidUserIds = [];
+        
+        referredUsers.forEach(doc => {
+            if (doc.data().paid === true) {
+                paidReferralCount++;
+                paidUserIds.push(doc.id);
+            }
+        });
+        
+        // Calculate correct balance (₦500 per paid referral)
+        const correctBalance = paidReferralCount * 500;
+        const currentBalance = currentUser.balance || 0;
+        
+        if (currentBalance !== correctBalance) {
+            await userDocRef.update({
+                balance: correctBalance,
+                referrals: paidReferralCount,
+                processedRewards: paidUserIds
+            });
+            
+            alert(`✅ Balance fixed!\n\nPaid Referrals: ${paidReferralCount}\nCorrect Balance: ₦${correctBalance}\nOld Balance: ₦${currentBalance}\nAmount removed: ₦${currentBalance - correctBalance}`);
+            
+            // Refresh
+            const updated = await userDocRef.get();
+            currentUser = { ...updated.data(), uid: updated.id };
+            document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
+            await loadReferrals();
+        } else {
+            alert(`✅ Balance is already correct!\nPaid Referrals: ${paidReferralCount}\nBalance: ₦${correctBalance}`);
+        }
+        
+    } catch (e) {
+        alert("Error fixing balance: " + e.message);
+    }
+    
+    hideLoading();
+}
+
+async function loadReferrals() {
+    const listEl = document.getElementById('referrals-list');
+    listEl.innerHTML = '<div class="list-item">Loading...</div>';
+
+    if (!currentUser || !currentUser.referralCode) {
+        listEl.innerHTML = '<div class="list-item">No referral code yet.</div>';
+        return;
+    }
+
+    try {
+        // Show ONLY paid referrals
+        const snap = await db.collection('users')
+            .where('referredBy', '==', currentUser.referralCode.trim().toUpperCase())
+            .where('paid', '==', true)
+            .get();
+
+        if (snap.empty) {
+            listEl.innerHTML = '<div class="list-item">No paid referrals yet. Share your link!</div>';
+            return;
+        }
+
+        const processedCount = currentUser.processedRewards ? currentUser.processedRewards.length : 0;
+        
+        listEl.innerHTML = `<div class="list-item"><strong>Paid Referrals: ${snap.size}</strong> (Rewarded: ${processedCount})</div>`;
+
+        snap.forEach(doc => {
+            const data = doc.data();
+            const rewarded = currentUser.processedRewards && currentUser.processedRewards.includes(doc.id) ? "✅ Rewarded" : "⏳ Pending Reward";
+            listEl.innerHTML += `<div class="list-item">${data.nickname} - ${rewarded}</div>`;
+        });
+    } catch (e) {
+        listEl.innerHTML = `<div class="list-item">Error: ${e.message}</div>`;
+    }
+}
+
 function initiateSquadPayment() {
     if (!currentUser) return alert("Please login first");
 
@@ -597,31 +765,32 @@ function initiateSquadPayment() {
         first_name: currentUser.nickname,
         onClose: () => alert("Payment cancelled"),
         onSuccess: async () => {
-            await userDocRef.update({ paid: true, rewardGiven: false });
-
+            await userDocRef.update({ paid: true });
             alert("✅ Payment successful! Referral link activated.");
-
-         if (currentUser.referredBy && !currentUser.rewardGiven) {
-    const refQuery = await db.collection('users')
-        .where('referralCode', '==', currentUser.referredBy)
-        .get();
-
-    if (!refQuery.empty) {
-        const refDoc = refQuery.docs[0];
-        try {
-            await refDoc.ref.update({
-                referrals: firebase.firestore.FieldValue.increment(1),
-                balance: firebase.firestore.FieldValue.increment(500)
-            });
-            await userDocRef.update({ rewardGiven: true });
-            console.log("✅ Referral reward applied successfully");
-        } catch (err) {
-            console.error("❌ Error updating referrer balance:", err.message);
-        }
-    } else {
-        console.log("⚠ Referrer not found for code:", currentUser.referredBy);
-    }
-}
+            
+            // Check if referrer exists and give them reward
+            if (currentUser.referredBy) {
+                const referrerQuery = await db.collection('users')
+                    .where('referralCode', '==', currentUser.referredBy.trim().toUpperCase())
+                    .get();
+                
+                if (!referrerQuery.empty) {
+                    const referrerDoc = referrerQuery.docs[0];
+                    const referrerData = referrerDoc.data();
+                    const processedRewards = referrerData.processedRewards || [];
+                    
+                    // Only give reward if not already processed
+                    if (!processedRewards.includes(currentUser.uid)) {
+                        await referrerDoc.ref.update({
+                            balance: firebase.firestore.FieldValue.increment(500),
+                            referrals: firebase.firestore.FieldValue.increment(1),
+                            processedRewards: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+                        });
+                        alert("✅ Your referrer has been credited ₦500!");
+                    }
+                }
+            }
+            
             loadHome();
         }
     });
@@ -657,8 +826,6 @@ function navigateTo(page) {
         loadAboutContent();
     }
 }
-
-// ==================== ALL YOUR ORIGINAL FUNCTIONS ====================
 
 async function loadWithdrawPage() {
     showLoading();
@@ -769,16 +936,10 @@ async function requestWithdrawal() {
     const amount = parseInt(amountStr);
 
     if (!amount) return alert("❌ Please select an amount");
-
-    if (!currentUser.bankDetails) {
-        return alert("❌ Please save your bank details first");
-    }
+    if (!currentUser.bankDetails) return alert("❌ Please save your bank details first");
 
     const currentBalance = currentUser.balance || 0;
-
-    if (amount > currentBalance) {
-        return alert("❌ Insufficient balance");
-    }
+    if (amount > currentBalance) return alert("❌ Insufficient balance");
 
     try {
         await db.collection('withdrawals').add({
@@ -792,7 +953,6 @@ async function requestWithdrawal() {
         });
 
         await userDocRef.update({ balance: currentBalance - amount });
-
         alert(`✅ Withdrawal request of ₦${amount.toLocaleString()} sent successfully.`);
         loadWithdrawPage();
         loadHome();
@@ -801,39 +961,12 @@ async function requestWithdrawal() {
     }
 }
 
-async function loadReferrals() {
-    const listEl = document.getElementById('referrals-list');
-    listEl.innerHTML = '';
-
-    if (!currentUser || !currentUser.referralCode) {
-        listEl.innerHTML = '<div class="list-item">No referral code yet.</div>';
-        return;
-    }
-
-    const snap = await db.collection('users')
-        .where('referredBy', '==', currentUser.referralCode)
-        .where('paid', '==', true)
-        .get();
-
-    if (snap.empty) {
-        listEl.innerHTML = '<div class="list-item">No referrals yet.</div>';
-        return;
-    }
-
-    listEl.innerHTML = `<div class="list-item"><strong>Total Referrals: ${snap.size}</strong></div>`;
-
-    snap.forEach(doc => {
-        const data = doc.data();
-        listEl.innerHTML += `<div class="list-item">${data.nickname} - Paid</div>`;
-    });
-}
-
 async function loadLeaderboard() {
     const listEl = document.getElementById('leaderboard-list');
     listEl.innerHTML = 'Loading...';
 
     try {
-        const snap = await db.collection('users').orderBy('balance', 'desc').get();
+        const snap = await db.collection('users').orderBy('balance', 'desc').limit(50).get();
         listEl.innerHTML = '';
 
         if (snap.empty) {
@@ -848,7 +981,7 @@ async function loadLeaderboard() {
                 <div class="list-item">
                     <strong>${rank}. ${data.nickname || 'User'}</strong><br>
                     Balance: ₦${(data.balance || 0).toFixed(2)}<br>
-                    Level: ${data.level || 'Newbie'}
+                    Referrals: ${data.referrals || 0}
                 </div>
             `;
             rank++;
@@ -864,7 +997,7 @@ async function loadAboutContent() {
     if (aboutDoc.exists && aboutDoc.data().content) {
         contentDiv.innerHTML = `<p>${aboutDoc.data().content}</p>`;
     } else {
-        contentDiv.innerHTML = '<p>No content available yet.</p>';
+        contentDiv.innerHTML = '<p>Fast Money - Refer and earn! Get ₦500 for every friend who joins AND pays the ₦1000 activation fee.</p>';
     }
 }
 
@@ -880,7 +1013,6 @@ function logout() {
     });
 }
 
-// Start the app
 document.addEventListener('DOMContentLoaded', () => {
     hideLoading();
 });
