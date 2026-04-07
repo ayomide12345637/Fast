@@ -438,6 +438,7 @@ const db = firebase.firestore();
 
 let currentUser = null;
 let userDocRef = null;
+let lastReferralCount = 0;
 
 const banks = ["Access Bank","Zenith Bank","Guaranty Trust Bank","First Bank of Nigeria","United Bank for Africa","Fidelity Bank","Union Bank of Nigeria","Stanbic IBTC Bank","Sterling Bank","First City Monument Bank","Wema Bank","Polaris Bank","Ecobank Nigeria","Keystone Bank","Unity Bank","Jaiz Bank","Titan Trust Bank","Providus Bank","SunTrust Bank Nigeria","Coronation Merchant Bank","FBNQuest Merchant Bank","Rand Merchant Bank Nigeria","Nova Merchant Bank","Greenwich Merchant Bank","OPay","PalmPay","Kuda Bank","Moniepoint","SmartCash Payment Service Bank","Paga","Carbon","FairMoney","VBank","ALAT by Wema","VFD Microfinance Bank","Rubies Microfinance Bank","Sparkle Microfinance Bank","Eyowo Microfinance Bank","Mint Finex Microfinance Bank","Carbon Microfinance Bank","FairMoney Microfinance Bank","Accion Microfinance Bank","LAPO Microfinance Bank","AB Microfinance Bank","Addosser Microfinance Bank","Covenant Microfinance Bank","NPF Microfinance Bank","Page Microfinance Bank","Regent Microfinance Bank","Virtue Microfinance Bank"];
 
@@ -525,6 +526,7 @@ async function login() {
 
         currentUser = { ...doc.data(), uid: cred.user.uid };
         
+        lastReferralCount = currentUser.referrals || 0;
         // Initialize processedRewards array if it doesn't exist
         if (!currentUser.processedRewards) {
             await userDocRef.update({ processedRewards: [] });
@@ -545,11 +547,42 @@ async function login() {
 }
 
 function setupRealtimeListener() {
+
     userDocRef.onSnapshot(doc => {
+
         if (!doc.exists) return;
-        currentUser = { ...doc.data(), uid: doc.id };
-        document.getElementById('balance').textContent = `₦${(currentUser.balance || 0).toFixed(2)}`;
+
+        const data = doc.data();
+
+        const oldReferrals = lastReferralCount;
+        const newReferrals = data.referrals || 0;
+
+        currentUser = { ...data, uid: doc.id };
+
+        document.getElementById('balance').textContent =
+            `₦${(currentUser.balance || 0).toFixed(2)}`;
+
+        if (newReferrals > oldReferrals) {
+
+            const newCount = newReferrals - oldReferrals;
+
+            setTimeout(() => {
+
+                const refresh = confirm(
+                    `🎉 You just referred ${newCount} new paid user!\n\nTap OK to refresh your balance.`
+                );
+
+                if (refresh) {
+                    processNewReferralRewards();
+                }
+
+            }, 1000);
+        }
+
+        lastReferralCount = newReferrals;
+
     });
+
 }
 
 async function loadHome() {
